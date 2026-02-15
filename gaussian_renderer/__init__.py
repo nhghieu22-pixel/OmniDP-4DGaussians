@@ -149,23 +149,16 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     # # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # # They will be excluded from value updates used in the splitting criteria.
 
-    S_other = 0
-    features = torch.zeros_like(means3D[:, :0])
-
     rendered_image, features_map, rendered_depth, rendered_acc, radii, psi, lat, lon = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
         colors_precomp = colors_precomp,
-        features=features,  # Optional - omit for RGB-only rendering
         opacities = opacity,
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp
     )
-
-    rendered_other, fake_depth, rendered_opacity = features_map.split([S_other, 1, 1], dim=0)
-    rendered_image_before = rendered_image
 
 
     return {"render": rendered_image,
