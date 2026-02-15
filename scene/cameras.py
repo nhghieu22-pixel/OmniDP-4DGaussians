@@ -36,7 +36,15 @@ class Camera(nn.Module):
             print(e)
             print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device" )
             self.data_device = torch.device("cuda")
-        self.original_image = image.clamp(0.0, 1.0)[:3,:,:]
+
+        # Convert to tensor if it's a numpy array
+        if isinstance(image, np.ndarray):
+            image = torch.from_numpy(image)
+            # Numpy arrays are typically in HWC format, convert to CHW
+            if len(image.shape) == 3 and image.shape[2] in [3, 4]:
+                image = image.permute(2, 0, 1)
+
+        self.original_image = image.clamp(0.0, 1.0)[:3,:,:].float()
         # breakpoint()
         # .to(self.data_device)
         self.image_width = self.original_image.shape[2]

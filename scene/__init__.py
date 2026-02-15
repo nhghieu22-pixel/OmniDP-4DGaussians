@@ -13,13 +13,14 @@ import os
 import random
 import json
 from utils.system_utils import searchForMaxIteration
-from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.gaussian_model import GaussianModel
 from scene.dataset import FourDGSdataset
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 from torch.utils.data import Dataset
 from scene.dataset_readers import add_points
+from scene.openMVG_loader import readOpenMVGInfo
+
 class Scene:
 
     gaussians : GaussianModel
@@ -42,27 +43,32 @@ class Scene:
         self.train_cameras = {}
         self.test_cameras = {}
         self.video_cameras = {}
-        if os.path.exists(os.path.join(args.source_path, "sparse")):
-            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval, args.llffhold)
-            dataset_type="colmap"
-        elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
-            print("Found transforms_train.json file, assuming Blender data set!")
-            scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval, args.extension)
-            dataset_type="blender"
-        elif os.path.exists(os.path.join(args.source_path, "poses_bounds.npy")):
-            scene_info = sceneLoadTypeCallbacks["dynerf"](args.source_path, args.white_background, args.eval)
-            dataset_type="dynerf"
-        elif os.path.exists(os.path.join(args.source_path,"dataset.json")):
-            scene_info = sceneLoadTypeCallbacks["nerfies"](args.source_path, False, args.eval)
-            dataset_type="nerfies"
-        elif os.path.exists(os.path.join(args.source_path,"train_meta.json")):
-            scene_info = sceneLoadTypeCallbacks["PanopticSports"](args.source_path)
-            dataset_type="PanopticSports"
-        elif os.path.exists(os.path.join(args.source_path,"points3D_multipleview.ply")):
-            scene_info = sceneLoadTypeCallbacks["MultipleView"](args.source_path)
-            dataset_type="MultipleView"
-        else:
-            assert False, "Could not recognize scene type!"
+        # if os.path.exists(os.path.join(args.source_path, "sparse")):
+        #     scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval, args.llffhold)
+        #     dataset_type="colmap"
+        # elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
+        #     print("Found transforms_train.json file, assuming Blender data set!")
+        #     scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval, args.extension)
+        #     dataset_type="blender"
+        # elif os.path.exists(os.path.join(args.source_path, "poses_bounds.npy")):
+        #     scene_info = sceneLoadTypeCallbacks["dynerf"](args.source_path, args.white_background, args.eval)
+        #     dataset_type="dynerf"
+        # elif os.path.exists(os.path.join(args.source_path,"dataset.json")):
+        #     scene_info = sceneLoadTypeCallbacks["nerfies"](args.source_path, False, args.eval)
+        #     dataset_type="nerfies"
+        # elif os.path.exists(os.path.join(args.source_path,"train_meta.json")):
+        #     scene_info = sceneLoadTypeCallbacks["PanopticSports"](args.source_path)
+        #     dataset_type="PanopticSports"
+        # elif os.path.exists(os.path.join(args.source_path,"points3D_multipleview.ply")):
+        #     scene_info = sceneLoadTypeCallbacks["MultipleView"](args.source_path)
+        #     dataset_type="MultipleView"
+        # else:
+        #     assert False, "Could not recognize scene type!"
+
+        dataset_type = "openMVG-helvipad"
+
+        scene_info = readOpenMVGInfo(args)
+
         self.maxtime = scene_info.maxtime
         self.dataset_type = dataset_type
         self.cameras_extent = scene_info.nerf_normalization["radius"]
