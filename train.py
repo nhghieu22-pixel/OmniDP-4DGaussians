@@ -244,7 +244,36 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
 
             # Log and save
             timer.pause()
-            training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, lpips_model, lpips_model2, scene, render, [pipe, background], stage, scene.dataset_type)
+            log_train_metrics = iteration in saving_iterations
+            if log_train_metrics:
+                train_ssim = ssim(image_tensor, gt_image_tensor).mean().double()
+                train_lpips_a = lpips_model(gt_image_tensor[:, :3], image_tensor, normalize=True).mean().double()
+                train_lpips_v = lpips_model2(gt_image_tensor[:, :3], image_tensor, normalize=True).mean().double()
+            else:
+                train_ssim = None
+                train_lpips_a = None
+                train_lpips_v = None
+            training_report(
+                tb_writer,
+                iteration,
+                Ll1,
+                loss,
+                l1_loss,
+                psnr_ if log_train_metrics else None,
+                train_ssim,
+                train_lpips_a,
+                train_lpips_v,
+                iter_start.elapsed_time(iter_end),
+                testing_iterations,
+                lpips_model,
+                lpips_model2,
+                scene,
+                render,
+                [pipe, background],
+                stage,
+                scene.dataset_type,
+                log_train_metrics,
+            )
             if (iteration in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration, stage)
@@ -336,11 +365,37 @@ def prepare_output_and_logger(expname):
         print("Tensorboard not available: not logging progress")
     return tb_writer
 
-def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, lpips_model, lpips_model2, scene : Scene, renderFunc, renderArgs, stage, dataset_type):
+def append_training_report(line):
+    if not args.model_path:
+        return
+    report_path = os.path.join(args.model_path, "training_report.csv")
+    write_header = not os.path.exists(report_path)
+    with open(report_path, "a", encoding="utf-8") as report_f:
+        if write_header:
+            report_f.write("type,stage,split,iteration,l1,loss,psnr,ssim,lpipsa,lpipsv,iter_ms\n")
+        report_f.write(line + "\n")
+
+def training_report(tb_writer, iteration, Ll1, loss, l1_loss, train_psnr, train_ssim, train_lpips_a, train_lpips_v, elapsed, testing_iterations, lpips_model, lpips_model2, scene : Scene, renderFunc, renderArgs, stage, dataset_type, log_train_metrics):
     if tb_writer:
         tb_writer.add_scalar(f'{stage}/train_loss_patches/l1_loss', Ll1.item(), iteration)
         tb_writer.add_scalar(f'{stage}/train_loss_patchestotal_loss', loss.item(), iteration)
         tb_writer.add_scalar(f'{stage}/iter_time', elapsed, iteration)
+
+    if log_train_metrics:
+        append_training_report(
+            "TRAIN,{},{},{},{},{},{},{},{},{},{}".format(
+                stage,
+                "train",
+                iteration,
+                Ll1.item(),
+                loss.item(),
+                train_psnr.item(),
+                train_ssim.item(),
+                train_lpips_a.item(),
+                train_lpips_v.item(),
+                elapsed,
+            )
+        )
         
     
     # Report test and samples of training set
@@ -386,6 +441,20 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 psnr_test /= len(config['cameras'])
                 l1_test /= len(config['cameras'])          
                 print("\n[ITER {}] Evaluating {}: L1 {} PSNR {} SSIM {} LPIPSA {} LPIPSV {}".format(iteration, config['name'], l1_test, psnr_test, ssim_test/n, lpips_test_a/n, lpips_test_v/n))
+                append_training_report(
+                    "EVAL,{},{},{},{},{},{},{},{},{},{}".format(
+                        stage,
+                        config['name'],
+                        iteration,
+                        l1_test,
+                        "",
+                        psnr_test,
+                        ssim_test / n,
+                        lpips_test_a / n,
+                        lpips_test_v / n,
+                        "",
+                    )
+                )
                 # print("sh feature",scene.gaussians.get_features.shape)
                 if tb_writer:
                     tb_writer.add_scalar(stage + "/"+config['name'] + '/loss_viewpoint - l1_loss', l1_test, iteration)
