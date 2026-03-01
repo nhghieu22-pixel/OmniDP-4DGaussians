@@ -353,7 +353,7 @@ def readCamerasFromOpenMVG(path, extrinsicsfile, cam_dict, white_background):
             FovY = fovy 
             FovX = fovx
 
-            pts_depth = load_depth_png_16bit(os.path.join(path, 'depths', f"{image_name}.png"), scale_to_meters=256.0)
+            pts_depth = load_depth_png_16bit(os.path.join(path, 'depths', f"{image_name}.png"), scale_to_meters=1000.0)
 
             cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=normed_img,
                             image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1], time=idx, mask=None))
